@@ -1,23 +1,38 @@
 import dbConnect from '@/lib/dbConnect'
 import { isSuperAdmin } from '@/lib/isSuperAdmin'
-import User from '@/models/User'
+import sqlite3 from 'sqlite3'
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { name, password } = body
-    await dbConnect()
+    const db = await dbConnect()
     const role = await isSuperAdmin()
+    
     if (role === 'superadmin') {
-      const user = await User.create({ name, password })
-
-      return Response.json({
-        message: 'New user created',
-        name: user.name,
-        role: user.role,
+      return new Promise<Response>((resolve, reject) => {
+        db.run(
+          'INSERT INTO users (name, password) VALUES (?, ?)',
+          [name, password],
+          function(err) {
+            if (err) {
+              console.error('User creation error:', err)
+              resolve(Response.json({ message: err.message }, { status: 500 }))
+            } else {
+              resolve(Response.json({
+                message: 'New user created',
+                name: name,
+                role: 'admin',
+              }))
+            }
+          }
+        )
       })
+    } else {
+      return Response.json({ message: 'Unauthorized' }, { status: 401 })
     }
   } catch (error: any) {
-    throw new Error(error.message)
+    console.error('POST register error:', error)
+    return Response.json({ message: error.message }, { status: 500 })
   }
 }

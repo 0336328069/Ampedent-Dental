@@ -1,6 +1,6 @@
 'use client'
 
-import { BookingType } from '@/models/Booking'
+import { SQLiteBookingType } from '@/types/booking'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useDebounce } from '@uidotdev/usehooks'
@@ -16,7 +16,7 @@ import Spinner from '@/app/components/Spinner'
 import Pagination from '@/app/components/admin/Pagination'
 
 function Bookings() {
-  const [bookings, setBookings] = useState<BookingType[]>([])
+  const [bookings, setBookings] = useState<SQLiteBookingType[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -115,9 +115,9 @@ function Bookings() {
               bookings.map(booking => (
                 <tr
                   className='border-b transition-colors hover:bg-muted/50 '
-                  key={booking._id.toString()}>
+                  key={booking.id.toString()}>
                   <td className='p-4 align-middle font-medium'>
-                    {booking._id.toString()}
+                    {booking.id.toString()}
                   </td>
                   <td className='p-4 align-middle capitalize'>
                     {booking.firstName} {booking.lastName}
@@ -142,7 +142,7 @@ function Bookings() {
                   <td className='p-4 align-middle'>
                     <button>
                       <Link
-                        href={`/admin/bookings/${booking._id.toString()}`}
+                        href={`/admin/bookings/${booking.id.toString()}`}
                         className='btn '>
                         Show details
                       </Link>

@@ -1,6 +1,9 @@
 'use client'
 
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
+import * as yup from 'yup'
 
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -13,18 +16,62 @@ import {
 import SuccessBox from './SuccessBox'
 import BookingHeader from './BookingHeader'
 
-function BookingForm() {
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [message, setMessage] = useState('')
+// Validation schema using Yup
+const bookingSchema = yup.object({
+  firstName: yup
+    .string()
+    .required('First name is required')
+    .matches(/^[a-zA-ZÀ-ỹ\s]+$/, 'First name can only contain letters and spaces')
+    .min(2, 'First name must be at least 2 characters'),
+  lastName: yup
+    .string()
+    .required('Last name is required')
+    .matches(/^[a-zA-ZÀ-ỹ\s]+$/, 'Last name can only contain letters and spaces')
+    .min(2, 'Last name must be at least 2 characters'),
+  email: yup
+    .string()
+    .required('Email is required')
+    .email('Invalid email format'),
+  phone: yup
+    .string()
+    .required('Phone number is required')
+    .matches(/^[0-9+\-\(\)\s]+$/, 'Phone number can only contain numbers and special characters')
+    .min(8, 'Phone number must be at least 8 characters'),
+  date: yup
+    .date()
+    .required('Date is required')
+    .min(new Date(), 'Date must be in the present or future'),
+  time: yup
+    .string()
+    .required('Please select a time slot'),
+  message: yup
+    .string()
+    .optional()
+})
 
+type BookingFormData = yup.InferType<typeof bookingSchema>
+
+function BookingForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [isDisabled, setIsDisabled] = useState(true)
   const [created, setCreated] = useState(false)
+  const [availableTimes, setAvailableTimes] = useState<string[]>([])
+  const [bookingData, setBookingData] = useState<{ date: Date | null; time: string }>({ date: null, time: '' })
   const successBoxRef = useRef<HTMLDivElement | null>(null)
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+    watch,
+    setValue,
+    reset
+  } = useForm<BookingFormData>({
+    resolver: yupResolver(bookingSchema),
+    mode: 'onChange'
+  })
+
+  const watchedDate = watch('date')
 
   const now = new Date()
   let defaultDate = new Date()
@@ -39,11 +86,10 @@ function BookingForm() {
     defaultDate.setDate(defaultDate.getDate() + 2)
   }
 
-  const [availableTimes, setAvailableTimes] = useState<string[]>([])
-  const [selectedDate, setSelectedDate] = useState<Date | null>(
-    () => defaultDate,
-  )
-  const [selectedTime, setSelectedTime] = useState('')
+  // Set default date
+  useEffect(() => {
+    setValue('date', defaultDate)
+  }, [setValue])
 
   function filterDates(date: Date) {
     const day = date.getDay()
@@ -67,68 +113,57 @@ function BookingForm() {
     return true
   }
 
-  const isValidEmail = (email: string) => /\S+@\S+\.\S+/.test(email)
-  const isValidPhone = (phone: string) =>
-    phone.length >= 8 &&
-    /^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s./0-9]*$/.test(phone)
-  const isValidName = (name: string) => name.length >= 3
-
+  // Fetch available times when date changes
   useEffect(() => {
-    const isEmpty = [firstName, lastName, email, phone, selectedTime].some(
-      x => x === '',
-    )
-    setIsDisabled(
-      isEmpty ||
-        !isValidName(firstName) ||
-        !isValidName(lastName) ||
-        !isValidEmail(email) ||
-        !isValidPhone(phone),
-    )
-  }, [firstName, lastName, email, phone])
-
-  useEffect(() => {
-    async function fetchAvailableTimes() {
-      try {
-        const res = await fetch(`/api/availability?date=${selectedDate}`)
-        if (res.ok) {
-          const data = await res.json()
-          setAvailableTimes(data.availableTimes)
-          if (data.availableTimes.length > 0) {
-            setSelectedTime(data.availableTimes[0])
+    if (watchedDate) {
+      const fetchAvailableTimes = async () => {
+        try {
+          // Convert date to YYYY-MM-DD format
+          const dateString = watchedDate.toISOString().split('T')[0]
+          
+          const res = await fetch(`/api/availability?date=${dateString}`)
+          if (res.ok) {
+            const data = await res.json()
+            setAvailableTimes(data.availableTimes)
+            if (data.availableTimes.length > 0) {
+              setValue('time', data.availableTimes[0])
+            } else {
+              setValue('time', '')
+            }
           }
+        } catch (err: any) {
+          setError(err.message)
         }
-      } catch (err: any) {
-        setError(err.message)
       }
+      fetchAvailableTimes()
     }
-    fetchAvailableTimes()
-  }, [selectedDate?.valueOf])
+  }, [watchedDate, setValue])
 
-  function handleAppointment(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  const onSubmit = async (data: BookingFormData) => {
     try {
       setIsLoading(true)
-      const body = {
-        firstName,
-        lastName,
-        email,
-        phone,
-        message,
-        date: selectedDate,
-        time: selectedTime,
-      }
-      fetch('/api/booking', {
+      setError('')
+      
+      const res = await fetch('/api/booking', {
         method: 'POST',
-        body: JSON.stringify(body),
         headers: {
           'Content-Type': 'application/json',
         },
-      }).then(() => {
-        setIsLoading(false)
-        setCreated(true)
+        body: JSON.stringify(data)
       })
+
+      if (res.ok) {
+        // Save booking data before reset
+        setBookingData({ date: data.date, time: data.time })
+        setCreated(true)
+        reset()
+      } else {
+        const errorData = await res.json()
+        setError(errorData.message || 'An error occurred while booking')
+      }
     } catch (err: any) {
-      setError(err.message)
+      setError('An error occurred while booking')
+    } finally {
       setIsLoading(false)
     }
   }
@@ -151,9 +186,9 @@ function BookingForm() {
               <p className='mx-auto text-lg mb-8 mt-4  text-slate-600 md:mb-16'>
                 Thank you! Your appointment has been successfully booked. <br />
                 We look forward to seeing you on{' '}
-                {formatDate(selectedDate!.toString())} at{' '}
-                {formatTime(selectedTime)} -{' '}
-                {incrementTimeByOneHour(selectedTime)}. <br />
+                {formatDate(bookingData.date?.toString() || '')} at{' '}
+                {formatTime(bookingData.time || '')} -{' '}
+                {incrementTimeByOneHour(bookingData.time || '')}. <br />
                 If you have any questions or need to make changes, please
                 contact us at <br />
                 <span className='font-bold'>ampedent@example.com</span> or call
@@ -166,137 +201,190 @@ function BookingForm() {
         {!created && (
           <>
             <BookingHeader />
-            {error && <p className='text-red-600 text-center '>{error}</p>}
+            {error && <p className='text-red-600 text-center mb-4'>{error}</p>}
 
-            <form className=' mx-auto' onSubmit={handleAppointment}>
+            <form className='mx-auto' onSubmit={handleSubmit(onSubmit)}>
               <div className='grid md:grid-cols-2 gap-4 items-center'>
                 <div>
-                  <label htmlFor='name'>
+                  <label htmlFor='firstName'>
                     First name
-                    {!isValidName(firstName) && (
-                      <span className='text-red-600 ml-1'>*</span>
-                    )}
+                    <span className='text-red-600 ml-1'>*</span>
                   </label>
-                  <input
-                    disabled={isLoading}
-                    type='text'
-                    id='name'
-                    value={firstName}
-                    onChange={e => setFirstName(e.target.value)}
+                  <Controller
+                    name="firstName"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        disabled={isLoading}
+                        type='text'
+                        id='firstName'
+                        className={errors.firstName ? 'border-red-500' : ''}
+                        placeholder="Enter your first name"
+                      />
+                    )}
                   />
+                  {errors.firstName && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.firstName.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label htmlFor='name'>
+                  <label htmlFor='lastName'>
                     Last name
-                    {!isValidName(lastName) && (
-                      <span className='text-red-600 ml-1'>*</span>
-                    )}
+                    <span className='text-red-600 ml-1'>*</span>
                   </label>
-                  <input
-                    disabled={isLoading}
-                    type='text'
-                    id='name'
-                    value={lastName}
-                    onChange={e => setLastName(e.target.value)}
+                  <Controller
+                    name="lastName"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        disabled={isLoading}
+                        type='text'
+                        id='lastName'
+                        className={errors.lastName ? 'border-red-500' : ''}
+                        placeholder="Enter your last name"
+                      />
+                    )}
                   />
+                  {errors.lastName && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.lastName.message}</p>
+                  )}
                 </div>
               </div>
-              <div className=' flex flex-col my-4'>
+              
+              <div className='flex flex-col my-4'>
                 <label htmlFor='email'>
                   Email
-                  {!isValidEmail(email) && (
-                    <span className='text-red-600 ml-1'>*</span>
-                  )}
+                  <span className='text-red-600 ml-1'>*</span>
                 </label>
-                <input
-                  disabled={isLoading}
-                  type='email'
-                  id='email'
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                <Controller
+                  name="email"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      disabled={isLoading}
+                      type='email'
+                      id='email'
+                      className={errors.email ? 'border-red-500' : ''}
+                      placeholder="example@email.com"
+                    />
+                  )}
                 />
+                {errors.email && (
+                  <p className='text-red-500 text-sm mt-1'>{errors.email.message}</p>
+                )}
               </div>
-              <div className=' flex flex-col my-4'>
+              
+              <div className='flex flex-col my-4'>
                 <label htmlFor='phone'>
                   Phone
-                  {!isValidPhone(phone) && (
-                    <span
-                      className='text-red-600 ml-1
-					'>
-                      *
-                    </span>
-                  )}
+                  <span className='text-red-600 ml-1'>*</span>
                 </label>
-                <input
-                  disabled={isLoading}
-                  type='text'
-                  id='phone'
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
+                <Controller
+                  name="phone"
+                  control={control}
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      disabled={isLoading}
+                      type='text'
+                      id='phone'
+                      className={errors.phone ? 'border-red-500' : ''}
+                      placeholder="0912345678"
+                    />
+                  )}
                 />
+                {errors.phone && (
+                  <p className='text-red-500 text-sm mt-1'>{errors.phone.message}</p>
+                )}
               </div>
 
               <div className='grid md:grid-cols-2 gap-4 items-center'>
                 <div className='flex flex-col'>
                   <label htmlFor='date' className='mb-[2px]'>
                     Date
-                    {!selectedDate && (
-                      <span className='text-red-600 ml-1'>*</span>
-                    )}
+                    <span className='text-red-600 ml-1'>*</span>
                   </label>
-                  <DatePicker
-                    id='date'
-                    disabled={isLoading}
-                    selected={selectedDate}
-                    onChange={date => setSelectedDate(date)}
-                    dateFormat='dd MMMM yyyy'
-                    filterDate={filterDates}
+                  <Controller
+                    name="date"
+                    control={control}
+                    render={({ field }) => (
+                      <DatePicker
+                        id='date'
+                        disabled={isLoading}
+                        selected={field.value}
+                        onChange={(date) => field.onChange(date)}
+                        name={field.name}
+                        dateFormat='dd MMMM yyyy'
+                        filterDate={filterDates}
+                        className={errors.date ? 'border-red-500' : ''}
+                        placeholderText="Select date"
+                      />
+                    )}
                   />
+                  {errors.date && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.date.message}</p>
+                  )}
                 </div>
                 <div className='flex flex-col'>
                   <label htmlFor='time' className='mb-[2px]'>
                     Time
-                    {!selectedTime && (
-                      <span className='text-red-600 ml-1'>*</span>
-                    )}
+                    <span className='text-red-600 ml-1'>*</span>
                   </label>
-                  <select
-                    value={selectedTime}
-                    onChange={e => setSelectedTime(e.target.value)}
-                    disabled={isLoading}
-                    id='time'
-                    className='appearance-none bg-white'>
-                    {availableTimes.length > 0 ? (
-                      availableTimes.map((time: string) => (
-                        <option value={time} key={time}>
-                          {formatTime(time)} - {incrementTimeByOneHour(time)}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>No time available for this date</option>
+                  <Controller
+                    name="time"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        {...field}
+                        disabled={isLoading}
+                        id='time'
+                        className={`appearance-none bg-white ${errors.time ? 'border-red-500' : ''}`}
+                        >
+                        <option value=''>Select time slot</option>
+                        {availableTimes.length > 0 ? (
+                          availableTimes.map((time: string) => (
+                            <option value={time} key={time}>
+                              {formatTime(time)} - {incrementTimeByOneHour(time)}
+                            </option>
+                          ))
+                        ) : (
+                          <option disabled>No time available for this date</option>
+                        )}
+                      </select>
                     )}
-                  </select>
+                  />
+                  {errors.time && (
+                    <p className='text-red-500 text-sm mt-1'>{errors.time.message}</p>
+                  )}
                 </div>
               </div>
 
-              <div className=' flex flex-col my-4'></div>
-              <div className=' flex flex-col my-4'>
+              <div className='flex flex-col my-4'>
                 <label htmlFor='message'>Message</label>
-                <textarea
-                  disabled={isLoading}
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  name='message'
-                  id='message'
-                  cols={30}
-                  rows={10}
-                  placeholder='Enter any specific requests or additional information here...'></textarea>
+                <Controller
+                  name="message"
+                  control={control}
+                  render={({ field }) => (
+                    <textarea
+                      {...field}
+                      disabled={isLoading}
+                      id='message'
+                      cols={30}
+                      rows={10}
+                      placeholder='Enter any specific requests or additional information here...'
+                    />
+                  )}
+                />
               </div>
+              
               <button
                 type='submit'
-                className=' rounded px-6 py-3 text-center font-semibold text-white bg-blue-600  hover:bg-blue-800'
-                disabled={isDisabled || isLoading}>
-                {isLoading ? 'Submitting' : 'Submit'}
+                className='rounded px-6 py-3 text-center font-semibold text-white bg-blue-600 hover:bg-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed'
+                disabled={isLoading}>
+                {isLoading ? 'Submitting...' : 'Submit'}
               </button>
             </form>
           </>

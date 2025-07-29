@@ -1,27 +1,37 @@
 import dbConnect from '@/lib/dbConnect'
 import { isSuperAdmin } from '@/lib/isSuperAdmin'
-import Booking from '@/models/Booking'
+import sqlite3 from 'sqlite3'
 
 export async function PUT(req: Request) {
   try {
-    await dbConnect()
+    const db = await dbConnect()
     const url = new URL(req.url)
-    const _id = url.searchParams.get('_id')
+    const _id = url.searchParams.get('_id') || url.searchParams.get('id')
 
     const role = await isSuperAdmin()
     if (role === 'superadmin' || role === 'admin') {
       if (_id) {
-        const booking = await Booking.findByIdAndUpdate(
-          _id,
-          { status: 'canceled' },
-          { new: true },
-        )
-        return Response.json({ message: 'Booking updated', booking: booking })
+        return new Promise<Response>((resolve, reject) => {
+          db.run(
+            'UPDATE bookings SET status = ? WHERE id = ?',
+            ['canceled', _id],
+            function(err) {
+              if (err) {
+                reject(err)
+              } else {
+                resolve(Response.json({ message: 'Booking updated' }))
+              }
+            }
+          )
+        })
+      } else {
+        return Response.json({ message: 'Booking ID required' }, { status: 400 })
       }
     } else {
-      throw new Error('Unauthorized')
+      return Response.json({ message: 'Unauthorized' }, { status: 401 })
     }
   } catch (error) {
-    throw new Error('Could not update bookings')
+    console.error('PUT cancel error:', error)
+    return Response.json({ message: 'Could not update bookings' }, { status: 500 })
   }
 }

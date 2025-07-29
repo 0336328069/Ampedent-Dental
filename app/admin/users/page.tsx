@@ -7,10 +7,10 @@ import { useEffect, useState } from 'react'
 import Spinner from '@/app/components/Spinner'
 import DeleteButton from '@/app/components/admin/DeleteButton'
 import EditUserModal from '@/app/components/admin/EditUserModal'
-import { UserType } from '@/models/User'
+import { SQLiteUserType } from '@/types/user'
 
 function UserList() {
-  const [users, setUsers] = useState<UserType[]>([])
+  const [users, setUsers] = useState<SQLiteUserType[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
@@ -40,7 +40,7 @@ function UserList() {
 
   async function handleDeleteClick(_id: string) {
     try {
-      const res = await fetch(`/api/users?_id=${_id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/users?id=${_id}`, { method: 'DELETE' })
       if (res.ok) {
         triggerRefresh()
       }
@@ -83,9 +83,9 @@ function UserList() {
               users.map(user => (
                 <tr
                   className='border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted'
-                  key={user._id.toString()}>
+                  key={user.id.toString()}>
                   <td className='p-4 align-middle  font-semibold'>
-                    {user._id.toString()}
+                    {user.id.toString()}
                   </td>
                   <td className='p-4 align-middle '>{user.name}</td>
                   <td className='p-4 align-middle '>{user.role}</td>
@@ -93,7 +93,7 @@ function UserList() {
                     <EditUserModal user={user} onUserUpdate={triggerRefresh} />
                     <DeleteButton
                       label='Delete'
-                      onDelete={() => handleDeleteClick(user._id.toString())}
+                      onDelete={() => handleDeleteClick(user.id.toString())}
                     />
                   </td>
                 </tr>

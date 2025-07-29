@@ -1,13 +1,13 @@
 'use client'
 
-import { UserType } from '@/models/User'
+import { SQLiteUserType } from '@/types/user'
 import { FormEvent, useState } from 'react'
 
 function EditUserModal({
   user,
   onUserUpdate,
 }: {
-  user: UserType
+  user: SQLiteUserType
   onUserUpdate: () => void
 }) {
   const [showUser, setShowUser] = useState(false)
@@ -18,7 +18,7 @@ function EditUserModal({
   async function handleEdit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     try {
-      const body = { _id: user._id, name, password }
+      const body = { _id: user.id, name, password }
       const res = await fetch('/api/users/', {
         method: 'PUT',
         body: JSON.stringify(body),
