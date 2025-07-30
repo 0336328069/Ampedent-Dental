@@ -47,7 +47,36 @@ input[type='search'],
 select {
   @apply block w-full mb-1 rounded-md;
   @apply border p-2 border-gray-200;
+  outline: none !important;
 }
+
+/* Remove outline completely for all input types */
+textarea:focus,
+input[type='email']:focus,
+input[type='password']:focus,
+input[type='tel']:focus,
+input[type='text']:focus,
+input[type='number']:focus,
+input[type='search']:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Error state styling */
+textarea.error,
+input[type='email'].error,
+input[type='password'].error,
+input[type='tel'].error,
+input[type='text'].error,
+input[type='number'].error,
+input[type='search'].error,
+select.error {
+  border: 2px solid #ef4444 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 input[type='email']:disabled,
 input[type='password']:disabled,
 input[type='tel']:disabled,

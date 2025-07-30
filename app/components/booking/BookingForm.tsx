@@ -204,8 +204,8 @@ function BookingForm() {
             {error && <p className='text-red-600 text-center mb-4'>{error}</p>}
 
             <form className='mx-auto' onSubmit={handleSubmit(onSubmit)}>
-              <div className='grid md:grid-cols-2 gap-4 items-center'>
-                <div>
+              <div className='grid md:grid-cols-2 gap-4'>
+                <div className='min-h-[100px]'>
                   <label htmlFor='firstName'>
                     First name
                     <span className='text-red-600 ml-1'>*</span>
@@ -219,7 +219,7 @@ function BookingForm() {
                         disabled={isLoading}
                         type='text'
                         id='firstName'
-                        className={errors.firstName ? 'border-red-500' : ''}
+                        className={errors.firstName ? 'error' : ''}
                         placeholder="Enter your first name"
                       />
                     )}
@@ -228,7 +228,7 @@ function BookingForm() {
                     <p className='text-red-500 text-sm mt-1'>{errors.firstName.message}</p>
                   )}
                 </div>
-                <div>
+                <div className='min-h-[100px]'>
                   <label htmlFor='lastName'>
                     Last name
                     <span className='text-red-600 ml-1'>*</span>
@@ -242,7 +242,7 @@ function BookingForm() {
                         disabled={isLoading}
                         type='text'
                         id='lastName'
-                        className={errors.lastName ? 'border-red-500' : ''}
+                        className={errors.lastName ? 'error' : ''}
                         placeholder="Enter your last name"
                       />
                     )}
@@ -253,7 +253,7 @@ function BookingForm() {
                 </div>
               </div>
               
-              <div className='flex flex-col my-4'>
+              <div className='min-h-[80px] my-4'>
                 <label htmlFor='email'>
                   Email
                   <span className='text-red-600 ml-1'>*</span>
@@ -267,7 +267,7 @@ function BookingForm() {
                       disabled={isLoading}
                       type='email'
                       id='email'
-                      className={errors.email ? 'border-red-500' : ''}
+                      className={errors.email ? 'error' : ''}
                       placeholder="example@email.com"
                     />
                   )}
@@ -277,7 +277,7 @@ function BookingForm() {
                 )}
               </div>
               
-              <div className='flex flex-col my-4'>
+              <div className='min-h-[80px] my-4'>
                 <label htmlFor='phone'>
                   Phone
                   <span className='text-red-600 ml-1'>*</span>
@@ -291,7 +291,7 @@ function BookingForm() {
                       disabled={isLoading}
                       type='text'
                       id='phone'
-                      className={errors.phone ? 'border-red-500' : ''}
+                      className={errors.phone ? 'error' : ''}
                       placeholder="0912345678"
                     />
                   )}
@@ -301,8 +301,8 @@ function BookingForm() {
                 )}
               </div>
 
-              <div className='grid md:grid-cols-2 gap-4 items-center'>
-                <div className='flex flex-col'>
+              <div className='grid md:grid-cols-2 gap-4'>
+                <div className='min-h-[100px] flex flex-col'>
                   <label htmlFor='date' className='mb-[2px]'>
                     Date
                     <span className='text-red-600 ml-1'>*</span>
@@ -319,7 +319,7 @@ function BookingForm() {
                         name={field.name}
                         dateFormat='dd MMMM yyyy'
                         filterDate={filterDates}
-                        className={errors.date ? 'border-red-500' : ''}
+                        className={errors.date ? 'error' : ''}
                         placeholderText="Select date"
                       />
                     )}
@@ -328,7 +328,7 @@ function BookingForm() {
                     <p className='text-red-500 text-sm mt-1'>{errors.date.message}</p>
                   )}
                 </div>
-                <div className='flex flex-col'>
+                <div className='min-h-[100px] flex flex-col'>
                   <label htmlFor='time' className='mb-[2px]'>
                     Time
                     <span className='text-red-600 ml-1'>*</span>
@@ -341,7 +341,7 @@ function BookingForm() {
                         {...field}
                         disabled={isLoading}
                         id='time'
-                        className={`appearance-none bg-white ${errors.time ? 'border-red-500' : ''}`}
+                        className={`appearance-none bg-white ${errors.time ? 'error' : ''}`}
                         >
                         <option value=''>Select time slot</option>
                         {availableTimes.length > 0 ? (
